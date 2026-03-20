@@ -50,6 +50,85 @@ function searchLinks(query) {
   ]
 }
 
+const DIET_ANALYSIS_PROMPT = `You are a nutrition AI. Analyse the meal from the image and/or description provided.
+Return ONLY valid JSON — no markdown, no prose — matching this exact schema:
+{
+  "mealLabel":   string,
+  "highlight":   string,
+  "mindAligned": boolean,
+  "mindNote":    string,
+  "macros": {
+    "fruitsVeg":  number,
+    "protein":    number,
+    "fibreCarbs": number,
+    "fats":       number
+  }
+}
+
+Rules:
+- mealLabel: short name e.g. "Grilled salmon with salad"
+- highlight: what the meal is highest in, e.g. "high in protein and omega-3"
+- mindAligned: true if the meal fits MIND diet principles (vegetables, berries, fish, poultry, nuts, olive oil, whole grains; low in red meat, butter, pastries, fried food)
+- mindNote: one sentence about MIND diet alignment or gap
+- macros: estimated percentage of plate for each food group, ALL FOUR must sum to exactly 100
+  - fruitsVeg: fruits, vegetables, leafy greens, berries
+  - protein: fish, seafood, poultry, eggs, legumes, meat
+  - fibreCarbs: whole grains, bread, rice, pasta, lentils, potatoes
+  - fats: olive oil, nuts, avocado, dairy, butter, sauces
+Be reasonable. If the image is unclear, rely on the description.`
+
+export async function analyseMealImage(imageDataUrl, description) {
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
+  if (!apiKey || apiKey === 'your_openai_api_key_here') {
+    return { ok: false, error: 'No API key set. Add your OpenAI key to .env.local.' }
+  }
+
+  const userText = description?.trim()
+    ? `User description: ${description.trim()}`
+    : 'Please analyse this meal from the image.'
+
+  const content = []
+  if (imageDataUrl) {
+    content.push({ type: 'image_url', image_url: { url: imageDataUrl, detail: 'low' } })
+  }
+  content.push({ type: 'text', text: DIET_ANALYSIS_PROMPT + '\n\n' + userText })
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content }],
+        max_tokens: 350,
+        temperature: 0.3,
+      }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      return { ok: false, error: err.error?.message || `API error ${res.status}` }
+    }
+    const data = await res.json()
+    const raw = data.choices?.[0]?.message?.content?.trim() ?? ''
+    const cleaned = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim()
+    const parsed = JSON.parse(cleaned)
+    // Normalise macros to sum to 100
+    const m = parsed.macros
+    const total = m.fruitsVeg + m.protein + m.fibreCarbs + m.fats
+    if (total > 0) {
+      parsed.macros = {
+        fruitsVeg:  Math.round((m.fruitsVeg  / total) * 100),
+        protein:    Math.round((m.protein    / total) * 100),
+        fibreCarbs: Math.round((m.fibreCarbs / total) * 100),
+        fats:       Math.round((m.fats       / total) * 100),
+      }
+    }
+    return { ok: true, result: parsed }
+  } catch {
+    return { ok: false, error: 'Failed to analyse meal. Please try again.' }
+  }
+}
+
 export async function chatWithAisha(userMessage) {
   const apiKey = import.meta.env.VITE_OPENAI_API_KEY
 

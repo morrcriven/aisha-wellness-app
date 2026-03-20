@@ -7,7 +7,7 @@ const FEATURES = [
   { id: 'diet',   label: 'Diet',          icon: <LeafIcon /> },
 ]
 
-export default function HomeScreen({ onSelect, sessions = [], sleepLogs = [] }) {
+export default function HomeScreen({ onSelect, sessions = [], sleepLogs = [], dietLogs = [] }) {
   const [input, setInput]       = useState('')
   const [messages, setMessages] = useState([])
   const [loading, setLoading]   = useState(false)
@@ -93,7 +93,7 @@ export default function HomeScreen({ onSelect, sessions = [], sleepLogs = [] }) 
         <div className="home-summary">
           <SummaryItem icon={<BrainIconSmall />} text={getMemorySummary(sessions)} />
           <SummaryItem icon={<MoonIconSmall />}  text={getSleepSummary(sleepLogs)} />
-          <SummaryItem icon={<LeafIconSmall />}  text="Log your diet to get personalised recommendations." muted />
+          <SummaryItem icon={<LeafIconSmall />}  text={getDietSummary(dietLogs)} muted={dietLogs.length === 0} />
         </div>
       )}
 
@@ -205,6 +205,18 @@ function getMemorySummary(sessions) {
   } else {
     return `Your latest score was ${last.score}/${last.total} (${lastPct}%). A little practice goes a long way!`
   }
+}
+
+function getDietSummary(dietLogs) {
+  if (!dietLogs || dietLogs.length === 0) {
+    return 'Log your diet to get personalised MIND diet recommendations.'
+  }
+  const today = new Date().toISOString().slice(0, 10)
+  const todayCount = dietLogs.filter((l) => l.date === today).length
+  if (todayCount > 0) {
+    return `You've logged ${todayCount} meal${todayCount > 1 ? 's' : ''} today. Tap Diet to see your breakdown.`
+  }
+  return 'No meals logged today yet. Tap Diet to log a meal.'
 }
 
 function getSleepSummary(sleepLogs) {

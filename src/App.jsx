@@ -6,6 +6,10 @@ import QuestionScreen from './components/QuestionScreen'
 import ResultsScreen from './components/ResultsScreen'
 import GraphScreen from './components/GraphScreen'
 import SleepScreen from './components/SleepScreen'
+import DietScreen from './components/DietScreen'
+import DietLogScreen from './components/DietLogScreen'
+import DietAnalysisScreen from './components/DietAnalysisScreen'
+import DietRecsScreen from './components/DietRecsScreen'
 
 const MAX_QUESTIONS = questions.length
 
@@ -41,6 +45,49 @@ export default function App() {
     saveJSON('aisha_sleep_logs', newLogs)
   }
 
+  // Diet logs: { id, date, timestamp, description, mealLabel, macros, mindAligned, mindNote }[]
+  const [dietLogs, setDietLogs] = useState(() =>
+    loadJSON('aisha_diet_logs', [])
+  )
+
+  // Ephemeral diet flow — never persisted
+  const [pendingMealImage, setPendingMealImage] = useState(null)
+  const [pendingMealDesc,  setPendingMealDesc]  = useState('')
+
+  function handleDietLogsChange(newLogs) {
+    setDietLogs(newLogs)
+    saveJSON('aisha_diet_logs', newLogs)
+  }
+
+  function handleAnalyseMeal(imageDataUrl, description) {
+    setPendingMealImage(imageDataUrl)
+    setPendingMealDesc(description)
+    setScreen('diet-analysis')
+  }
+
+  function handleSaveMeal(analysisResult) {
+    const log = {
+      id:          Date.now().toString(),
+      date:        new Date().toISOString().slice(0, 10),
+      timestamp:   new Date().toISOString(),
+      description: pendingMealDesc,
+      mealLabel:   analysisResult.mealLabel,
+      macros:      analysisResult.macros,
+      mindAligned: analysisResult.mindAligned,
+      mindNote:    analysisResult.mindNote,
+    }
+    handleDietLogsChange([...dietLogs, log])
+    setPendingMealImage(null)
+    setPendingMealDesc('')
+    setScreen('diet')
+  }
+
+  function handleDiscardMeal() {
+    setPendingMealImage(null)
+    setPendingMealDesc('')
+    setScreen('diet-log')
+  }
+
   // In-game state
   const [gameQuestions, setGameQuestions] = useState([])
   const [repeatIds, setRepeatIds]         = useState(new Set())
@@ -50,6 +97,7 @@ export default function App() {
   function handleSelectFeature(feat) {
     if (feat === 'memory') setScreen('setup')
     else if (feat === 'sleep') setScreen('sleep')
+    else if (feat === 'diet') setScreen('diet')
     else setScreen('coming-soon-' + feat)
   }
 
@@ -114,6 +162,7 @@ export default function App() {
           onSelect={handleSelectFeature}
           sessions={sessionHistory}
           sleepLogs={sleepLogs}
+          dietLogs={dietLogs}
         />
       )}
 
@@ -166,36 +215,39 @@ export default function App() {
         />
       )}
 
-      {screen === 'coming-soon-diet' && (
-        <ComingSoon feature="diet" onBack={() => setScreen('home')} />
+      {screen === 'diet' && (
+        <DietScreen
+          logs={dietLogs}
+          onLogMeal={() => setScreen('diet-log')}
+          onSeeRecs={() => setScreen('diet-recs')}
+          onHome={() => setScreen('home')}
+        />
+      )}
+
+      {screen === 'diet-log' && (
+        <DietLogScreen
+          onAnalyse={handleAnalyseMeal}
+          onBack={() => setScreen('diet')}
+        />
+      )}
+
+      {screen === 'diet-analysis' && (
+        <DietAnalysisScreen
+          imageDataUrl={pendingMealImage}
+          description={pendingMealDesc}
+          onSave={handleSaveMeal}
+          onDiscard={handleDiscardMeal}
+        />
+      )}
+
+      {screen === 'diet-recs' && (
+        <DietRecsScreen
+          logs={dietLogs}
+          onBack={() => setScreen('diet')}
+          onHome={() => setScreen('home')}
+        />
       )}
     </div>
   )
 }
 
-function ComingSoon({ feature, onBack }) {
-  const meta = {
-    sleep: { icon: '🌙', label: 'Sleep Tracking' },
-    diet:  { icon: '🥗', label: 'Diet Planner' },
-  }[feature] ?? { icon: '🔧', label: feature }
-
-  return (
-    <div className="screen coming-soon-screen">
-      <button className="btn-back" onClick={onBack} aria-label="Back">
-        <BackIcon />
-      </button>
-      <div className="coming-soon-icon">{meta.icon}</div>
-      <h2 className="coming-soon-heading">{meta.label}</h2>
-      <p className="coming-soon-sub">This feature is coming soon. Stay tuned!</p>
-    </div>
-  )
-}
-
-function BackIcon() {
-  return (
-    <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
-      <path d="M19 7L11 15L19 23" stroke="currentColor" strokeWidth="2.5"
-        strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
