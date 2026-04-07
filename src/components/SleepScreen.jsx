@@ -25,11 +25,19 @@ function getChartData(logs, tab) {
 
   if (tab === 'Month') {
     const daysInMonth = new Date(year, month + 1, 0).getDate()
-    return Array.from({ length: daysInMonth }, (_, i) => {
-      const day     = i + 1
-      const dateStr = `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
-      const log     = logs.find(l => l.date === dateStr)
-      return { label: String(day), value: log ? log.hours : null }
+    const numWeeks    = Math.ceil(daysInMonth / 7)
+    return Array.from({ length: numWeeks }, (_, w) => {
+      const startDay = w * 7 + 1
+      const endDay   = Math.min(startDay + 6, daysInMonth)
+      const weekLogs = logs.filter(l => {
+        const d = new Date(l.date + 'T12:00:00')
+        return d.getFullYear() === year && d.getMonth() === month &&
+               d.getDate() >= startDay && d.getDate() <= endDay
+      })
+      const avg = weekLogs.length
+        ? weekLogs.reduce((s, l) => s + l.hours, 0) / weekLogs.length
+        : null
+      return { label: `Wk ${w + 1}`, value: avg }
     })
   }
 
@@ -47,18 +55,35 @@ function getChartData(logs, tab) {
     })
   }
 
-  // Day — last 7 individual logged nights
-  const recent = [...logs].slice(-7)
-  while (recent.length < 7) recent.unshift(null)
-  return recent.map(l => ({
-    label: l ? new Date(l.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—',
-    value: l ? l.hours : null,
-  }))
+  // Day — today only
+  const todayStr = now.toISOString().slice(0, 10)
+  const todayLog = logs.find(l => l.date === todayStr)
+  const todayLabel = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+  return [{ label: todayLabel, value: todayLog ? todayLog.hours : null }]
 }
 
 function getCaptionText(tab) {
   const word = { Day: 'week', Week: 'week', Month: 'month', Year: 'year' }[tab]
   return `This is your average sleep hours for the ${word}!`
+}
+
+function getMonthAvgComment(avg) {
+  if (avg < 6)   return 'Below recommended — try to aim for 7–9 hours.'
+  if (avg < 7)   return 'Getting there! A little more sleep would help.'
+  if (avg <= 9)  return 'Great — right in the recommended 7–9 hour range!'
+  return 'Slightly above average — consistency matters most.'
+}
+
+function getMonthlyAverage(logs) {
+  const now   = new Date()
+  const year  = now.getFullYear()
+  const month = now.getMonth()
+  const monthLogs = logs.filter(l => {
+    const d = new Date(l.date + 'T12:00:00')
+    return d.getFullYear() === year && d.getMonth() === month
+  })
+  if (!monthLogs.length) return null
+  return monthLogs.reduce((s, l) => s + l.hours, 0) / monthLogs.length
 }
 
 /* ─── Main component ─────────────────────────────────────── */
@@ -158,8 +183,10 @@ export default function SleepScreen({ logs, onLogsChange, onHome }) {
   }
 
   /* ── Main tracker screen ── */
-  const chartData   = getChartData(logs, tab)
-  const captionText = getCaptionText(tab)
+  const chartData    = getChartData(logs, tab)
+  const captionText  = getCaptionText(tab)
+  const monthlyAvg   = tab === 'Month' ? getMonthlyAverage(logs) : null
+  const monthName    = new Date().toLocaleString('default', { month: 'long' })
 
   return (
     <div className="screen sleep-screen">
@@ -184,12 +211,25 @@ export default function SleepScreen({ logs, onLogsChange, onHome }) {
         ))}
       </div>
 
-      {/* Bar chart */}
-      <div className="sleep-chart-wrap">
-        <SleepBarChart data={chartData} />
+      {/* Data list */}
+      <div className="sleep-list">
+        <SleepList data={chartData} />
       </div>
 
-      <p className="sleep-caption">{captionText}</p>
+      {/* Monthly average summary */}
+      {tab === 'Month' && (
+        <div className="sleep-month-avg">
+          <p className="sleep-month-avg-label">{monthName} average</p>
+          {monthlyAvg !== null ? (
+            <>
+              <p className="sleep-month-avg-value">{monthlyAvg.toFixed(1)}<span className="sleep-month-avg-unit"> hrs</span></p>
+              <p className="sleep-month-avg-sub">{getMonthAvgComment(monthlyAvg)}</p>
+            </>
+          ) : (
+            <p className="sleep-month-avg-sub">No data logged this month yet.</p>
+          )}
+        </div>
+      )}
 
       <div style={{ flex: 1 }} />
 
@@ -207,73 +247,43 @@ export default function SleepScreen({ logs, onLogsChange, onHome }) {
   )
 }
 
-/* ─── SVG Bar Chart ──────────────────────────────────────── */
-function SleepBarChart({ data }) {
-  const maxVal = Math.max(...data.map(d => d.value ?? 0), 8)
-  const yMax   = Math.ceil(maxVal / 4) * 4 || 8
-
-  const W          = 334
-  const H          = 190
-  const PAD_LEFT   = 28
-  const PAD_BOTTOM = 22
-  const PAD_RIGHT  = 6
-  const PAD_TOP    = 6
-  const chartW     = W - PAD_LEFT - PAD_RIGHT
-  const chartH     = H - PAD_TOP - PAD_BOTTOM
-  const gridVals   = [0, yMax / 4, yMax / 2, (yMax * 3) / 4, yMax].map(v => Math.round(v))
-  const barCount   = data.length
-  const slotW      = chartW / barCount
-  const barW       = Math.min(slotW * 0.55, 22)
-
-  function yPos(val) {
-    return PAD_TOP + chartH - (val / yMax) * chartH
-  }
+/* ─── Sleep List (MacroFactor-style) ─────────────────────── */
+function SleepList({ data }) {
+  const maxVal  = Math.max(...data.map(d => d.value ?? 0), 9)
+  const wideLabel = data.length === 1
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block' }} aria-hidden="true">
-      {/* Grid lines */}
-      {gridVals.map(v => (
-        <g key={v}>
-          <line
-            x1={PAD_LEFT} y1={yPos(v)}
-            x2={W - PAD_RIGHT} y2={yPos(v)}
-            stroke="rgba(0,0,0,0.07)" strokeWidth="1"
-          />
-          <text x={PAD_LEFT - 4} y={yPos(v) + 4} textAnchor="end" fontSize="10" fill="#888">
-            {v}
-          </text>
-        </g>
-      ))}
-
-      {/* Baseline */}
-      <line
-        x1={PAD_LEFT} y1={PAD_TOP + chartH}
-        x2={W - PAD_RIGHT} y2={PAD_TOP + chartH}
-        stroke="rgba(0,0,0,0.15)" strokeWidth="1"
-      />
-
-      {/* Bars + labels */}
+    <>
       {data.map((d, i) => {
-        const cx   = PAD_LEFT + i * slotW + slotW / 2
-        const x    = cx - barW / 2
-        const barH = d.value != null ? (d.value / yMax) * chartH : 0
-        const y    = yPos(d.value ?? 0)
+        const fillPct = d.value != null ? (d.value / maxVal) * 100 : 0
+        const color   = barColor(d.value)
         return (
-          <g key={i}>
-            {d.value != null && (
-              <rect x={x} y={y} width={barW} height={barH} fill="#4bbfbf" rx="3" />
-            )}
-            <text
-              x={cx} y={PAD_TOP + chartH + 16}
-              textAnchor="middle" fontSize="9" fill="#666"
-            >
-              {d.label}
-            </text>
-          </g>
+          <div key={i} className="sleep-row">
+            <span className={`sleep-row-label${wideLabel ? ' sleep-row-label--wide' : ''}`}>{d.label}</span>
+            <div className="sleep-row-track">
+              {d.value != null && (
+                <div
+                  className="sleep-row-fill"
+                  style={{ width: `${fillPct}%`, background: color }}
+                />
+              )}
+            </div>
+            <span className="sleep-row-value" style={{ color: d.value != null ? color : undefined }}>
+              {d.value != null ? `${d.value.toFixed(1)}h` : '—'}
+            </span>
+          </div>
         )
       })}
-    </svg>
+    </>
   )
+}
+
+function barColor(hours) {
+  if (hours == null) return '#ccc'
+  if (hours < 6)    return '#c0392b'   // too little — red
+  if (hours < 7)    return '#e67e22'   // below target — amber
+  if (hours <= 9)   return '#4bbfbf'   // ideal — teal
+  return '#1a1a6e'                     // too much — navy
 }
 
 /* ─── Icons ───────────────────────────────────────────────── */

@@ -29,17 +29,13 @@ html, body, #root {
 }
 
 body {
-  background: #e4d8d3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: var(--bg);
   font-family: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif;
   overflow: hidden;
 }
 
 .app-shell {
   width: 100%;
-  max-width: 390px;
   height: 100dvh;
   background: var(--bg);
   position: relative;
@@ -556,6 +552,71 @@ body {
   line-height: 1.5;
 }
 
+/* ─── Retry (wrong answer) elements ──────────────────────── */
+.retry-question-text {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.5;
+  text-align: center;
+  margin: 12px 0 18px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: var(--radius);
+  width: 100%;
+}
+
+.retry-correct-answer {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text);
+  margin: 8px 0 20px;
+}
+
+.retry-instruction {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-light);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.retry-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 2.5px solid var(--wrong);
+  padding: 10px 0;
+  font-size: 22px;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--wrong);
+  text-align: center;
+  outline: none;
+  margin-bottom: 24px;
+  transition: border-color var(--ease), color var(--ease);
+}
+
+.retry-input:focus { border-bottom-color: var(--navy); color: var(--navy); }
+
+.retry-continue-btn {
+  width: 100%;
+  padding: 16px;
+  background: var(--navy);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 17px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--ease), opacity var(--ease);
+}
+
+.retry-continue-btn:hover:not(:disabled) { background: var(--navy-dark); }
+.retry-continue-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
 /* ═══════════════════════════════════════════════════════════
    RESULTS SCREEN
 ═══════════════════════════════════════════════════════════ */
@@ -846,19 +907,61 @@ body {
   border-radius: 2px;
 }
 
-/* Chart */
-.sleep-chart-wrap {
-  width: 100%;
-  margin-bottom: 4px;
+/* Sleep data list */
+.sleep-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  overflow-y: auto;
+  max-height: 340px;
 }
 
-.sleep-caption {
-  font-size: 16px;
+.sleep-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: white;
+  border-radius: var(--radius);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.sleep-row-label {
+  font-size: 12px;
   font-weight: 700;
-  color: var(--text);
-  text-align: center;
-  line-height: 1.4;
-  margin-bottom: 8px;
+  color: var(--text-mid);
+  width: 36px;
+  flex-shrink: 0;
+}
+
+.sleep-row-label--wide {
+  width: auto;
+  font-size: 14px;
+}
+
+.sleep-row-track {
+  flex: 1;
+  height: 8px;
+  background: rgba(0,0,0,0.07);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.sleep-row-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.sleep-row-value {
+  font-size: 13px;
+  font-weight: 800;
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+  color: var(--text-mid);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Add sleep hours button */
@@ -880,6 +983,45 @@ body {
 .sleep-add-btn:active {
   background: var(--text);
   color: white;
+}
+
+/* Monthly average summary card */
+.sleep-month-avg {
+  padding: 16px 20px;
+  border: 1.5px solid rgba(75, 191, 191, 0.35);
+  border-radius: var(--radius);
+  background: rgba(75, 191, 191, 0.07);
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.sleep-month-avg-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--teal-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.sleep-month-avg-value {
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.sleep-month-avg-unit {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-mid);
+}
+
+.sleep-month-avg-sub {
+  font-size: 13px;
+  color: var(--text-mid);
+  line-height: 1.5;
 }
 
 /* Calendar icon area */
