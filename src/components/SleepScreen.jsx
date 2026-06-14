@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const DAYS_SHORT   = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
@@ -91,16 +91,29 @@ export default function SleepScreen({ logs, onLogsChange, onHome }) {
   const [tab,          setTab]          = useState('Year')
   const [subScreen,    setSubScreen]    = useState('main') // 'main' | 'choose-date' | 'enter-hours'
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [hoursInput,   setHoursInput]   = useState('')
+  const [bedTime,      setBedTime]      = useState('')
+  const [wakeTime,     setWakeTime]     = useState('')
+
+  const calculatedHours = useMemo(() => {
+    if (!bedTime || !wakeTime) return null
+    const [bH, bM] = bedTime.split(':').map(Number)
+    const [wH, wM] = wakeTime.split(':').map(Number)
+    if ([bH, bM, wH, wM].some(n => Number.isNaN(n))) return null
+    let bedMin  = bH * 60 + bM
+    let wakeMin = wH * 60 + wM
+    // If wake time is at-or-before bed time, assume next-day wake-up
+    if (wakeMin <= bedMin) wakeMin += 24 * 60
+    return (wakeMin - bedMin) / 60
+  }, [bedTime, wakeTime])
 
   function handleHoursSubmit() {
-    const hours = parseFloat(hoursInput)
-    if (isNaN(hours) || hours < 0 || hours > 24) return
+    if (calculatedHours == null || calculatedHours <= 0 || calculatedHours > 24) return
     const updated = logs.filter(l => l.date !== selectedDate)
-    updated.push({ date: selectedDate, hours })
+    updated.push({ date: selectedDate, hours: calculatedHours })
     updated.sort((a, b) => a.date.localeCompare(b.date))
     onLogsChange(updated)
-    setHoursInput('')
+    setBedTime('')
+    setWakeTime('')
     setSubScreen('main')
   }
 
@@ -114,20 +127,9 @@ export default function SleepScreen({ logs, onLogsChange, onHome }) {
 
         <h2 className="sleep-sub-heading">Choose a day</h2>
 
-        <div className="sleep-calendar-icon-wrap" aria-hidden="true">
-          <CalendarIcon />
-        </div>
-
-        <div style={{ flex: 1 }} />
+        <InlineCalendar value={selectedDate} onChange={setSelectedDate} />
 
         <div className="sleep-date-input-row">
-          <input
-            type="date"
-            className="sleep-date-native"
-            value={selectedDate}
-            onChange={e => setSelectedDate(e.target.value)}
-            max={new Date().toISOString().slice(0, 10)}
-          />
           <button
             className="start-btn"
             style={{ marginTop: 16 }}
@@ -145,37 +147,53 @@ export default function SleepScreen({ logs, onLogsChange, onHome }) {
 
   /* ── Enter-hours sub-screen ── */
   if (subScreen === 'enter-hours') {
+    const showResult = calculatedHours != null
+    const canSave    = showResult && calculatedHours > 0 && calculatedHours <= 24
     return (
       <div className="screen sleep-screen">
         <button className="btn-back" onClick={() => setSubScreen('choose-date')} aria-label="Back">
           <BackIcon />
         </button>
 
-        <h2 className="sleep-sub-heading">How many hours of sleep did you get?</h2>
+        <h2 className="sleep-sub-heading">When did you sleep?</h2>
+
+        <div className="sleep-time-inputs">
+          <label className="sleep-time-field">
+            <span className="sleep-time-label">What time did you go to bed?</span>
+            <input
+              className="sleep-time-input"
+              type="time"
+              value={bedTime}
+              onChange={e => setBedTime(e.target.value)}
+            />
+          </label>
+
+          <label className="sleep-time-field">
+            <span className="sleep-time-label">What time did you wake up?</span>
+            <input
+              className="sleep-time-input"
+              type="time"
+              value={wakeTime}
+              onChange={e => setWakeTime(e.target.value)}
+            />
+          </label>
+        </div>
+
+        {showResult && (
+          <p className="sleep-time-result">
+            That's <strong>{calculatedHours.toFixed(1)} hours</strong> of sleep.
+          </p>
+        )}
 
         <div style={{ flex: 1 }} />
 
-        <div className="answer-area">
-          <input
-            className="answer-input"
-            type="number"
-            min="0"
-            max="24"
-            step="0.5"
-            placeholder="Type here"
-            value={hoursInput}
-            onChange={e => setHoursInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleHoursSubmit()}
-            autoFocus
-          />
-          <button
-            className="submit-btn"
-            onClick={handleHoursSubmit}
-            disabled={!hoursInput}
-          >
-            Save
-          </button>
-        </div>
+        <button
+          className="submit-btn"
+          onClick={handleHoursSubmit}
+          disabled={!canSave}
+        >
+          Save
+        </button>
 
         <div className="home-indicator" />
       </div>
@@ -279,11 +297,11 @@ function SleepList({ data }) {
 }
 
 function barColor(hours) {
-  if (hours == null) return '#ccc'
+  if (hours == null) return '#C5D5E8'
   if (hours < 6)    return '#c0392b'   // too little — red
   if (hours < 7)    return '#e67e22'   // below target — amber
-  if (hours <= 9)   return '#4bbfbf'   // ideal — teal
-  return '#1a1a6e'                     // too much — navy
+  if (hours <= 9)   return '#5C8A80'   // ideal — teal-sage
+  return '#6B7DB3'                     // too much — periwinkle
 }
 
 /* ─── Icons ───────────────────────────────────────────────── */
@@ -306,33 +324,92 @@ function HomeIcon() {
   )
 }
 
-function CalendarIcon() {
+const DOW_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
+
+function InlineCalendar({ value, onChange }) {
+  const today = new Date()
+  const todayStr = today.toISOString().slice(0, 10)
+
+  const initDate = value ? new Date(value + 'T12:00:00') : today
+  const [viewYear,  setViewYear]  = useState(initDate.getFullYear())
+  const [viewMonth, setViewMonth] = useState(initDate.getMonth()) // 0-indexed
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1) }
+    else setViewMonth(m => m - 1)
+  }
+  function nextMonth() {
+    const nextY = viewMonth === 11 ? viewYear + 1 : viewYear
+    const nextM = viewMonth === 11 ? 0 : viewMonth + 1
+    // Don't navigate past current month
+    if (nextY > today.getFullYear() || (nextY === today.getFullYear() && nextM > today.getMonth())) return
+    setViewMonth(nextM); if (viewMonth === 11) setViewYear(y => y + 1)
+  }
+
+  // Build grid: Mon-based weeks
+  const firstOfMonth = new Date(viewYear, viewMonth, 1)
+  const dowFirst = firstOfMonth.getDay() // 0=Sun
+  const startOffset = dowFirst === 0 ? 6 : dowFirst - 1 // cells before day 1
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
+  const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7
+
+  const monthLabel = firstOfMonth.toLocaleString('default', { month: 'long', year: 'numeric' })
+
+  const atMaxMonth = viewYear === today.getFullYear() && viewMonth === today.getMonth()
+
+  const cells = Array.from({ length: totalCells }, (_, i) => {
+    const dayNum = i - startOffset + 1
+    if (dayNum < 1 || dayNum > daysInMonth) return { dayNum: null, dateStr: null }
+    const pad = n => String(n).padStart(2, '0')
+    const dateStr = `${viewYear}-${pad(viewMonth + 1)}-${pad(dayNum)}`
+    return { dayNum, dateStr }
+  })
+
   return (
-    <svg width="160" height="160" viewBox="0 0 160 160" fill="none" aria-hidden="true">
-      <rect x="16" y="28" width="128" height="116" rx="12" stroke="#1a1a2e" strokeWidth="4" />
-      <line x1="16" y1="60" x2="144" y2="60" stroke="#1a1a2e" strokeWidth="3" />
-      {/* Rings */}
-      {[38, 58, 78, 98, 118, 138].map(x => (
-        <g key={x}>
-          <rect x={x - 5} y="16" width="10" height="20" rx="5" stroke="#1a1a2e" strokeWidth="3" fill="none" />
-        </g>
-      ))}
-      {/* Calendar grid — 4 cols × 3 rows */}
-      {[0,1,2,3,4,5,6,7,8,9,10,11].map(i => {
-        const col = i % 4
-        const row = Math.floor(i / 4)
-        const cx  = 34 + col * 30
-        const cy  = 84 + row * 26
-        return (
-          <rect key={i}
-            x={cx - 11} y={cy - 11} width={22} height={22} rx={5}
-            stroke="#1a1a2e" strokeWidth={i === 0 ? 2.5 : 2}
-            fill={i === 0 ? 'rgba(26,26,110,0.08)' : 'none'}
-          />
-        )
-      })}
-      {/* "1" label in first cell */}
-      <text x="34" y="79" textAnchor="middle" fontSize="12" fill="#1a1a2e" fontWeight="600">1</text>
-    </svg>
+    <div className="sleep-cal">
+      <div className="sleep-cal-header">
+        <button className="sleep-cal-nav" onClick={prevMonth} aria-label="Previous month">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M13 4L7 10L13 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+        <span className="sleep-cal-month-label">{monthLabel}</span>
+        <button className="sleep-cal-nav" onClick={nextMonth} aria-label="Next month" disabled={atMaxMonth}>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M7 4L13 10L7 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <div className="sleep-cal-grid">
+        {DOW_LABELS.map(d => (
+          <span key={d} className="sleep-cal-dow">{d}</span>
+        ))}
+        {cells.map((cell, i) => {
+          if (!cell.dateStr) return <span key={i} className="sleep-cal-day sleep-cal-day--outside" />
+          const isToday    = cell.dateStr === todayStr
+          const isSelected = cell.dateStr === value
+          const isFuture   = cell.dateStr > todayStr
+          const cls = [
+            'sleep-cal-day',
+            isToday    ? 'sleep-cal-day--today'    : '',
+            isSelected ? 'sleep-cal-day--selected' : '',
+            isFuture   ? 'sleep-cal-day--disabled' : '',
+          ].filter(Boolean).join(' ')
+          return (
+            <button
+              key={i}
+              className={cls}
+              onClick={() => !isFuture && onChange(cell.dateStr)}
+              disabled={isFuture}
+              aria-label={cell.dateStr}
+              aria-pressed={isSelected}
+            >
+              {cell.dayNum}
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { checkAnswer } from '../data/questions'
+import MicButton from './MicButton'
 
 export default function QuestionScreen({ question, questionIndex, total, isRepeat, onAnswer, onBack }) {
   const [answer, setAnswer]         = useState('')
@@ -48,10 +49,8 @@ export default function QuestionScreen({ question, questionIndex, total, isRepea
     if (e.key === 'Enter') handleRetrySubmit()
   }
 
-  // The retry input matches if it equals any accepted answer (case-insensitive)
-  const retryMatches = question.answer.some(
-    (a) => retryInput.trim().toLowerCase() === a.toLowerCase()
-  )
+  // Use the same lenient rules as the main answer check (typo & digit/word tolerant)
+  const retryMatches = checkAnswer(retryInput, question.answer)
 
   // Display form of the correct answer — capitalise first letter
   const correctDisplay = question.answer[0].charAt(0).toUpperCase() + question.answer[0].slice(1)
@@ -81,19 +80,25 @@ export default function QuestionScreen({ question, questionIndex, total, isRepea
 
       <div className="answer-area">
         <p className="answer-label">Your answer</p>
-        <input
-          ref={inputRef}
-          className="answer-input"
-          type="text"
-          placeholder="Type here…"
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={phase !== 'input'}
-          aria-label="Answer input"
-          autoComplete="off"
-          autoCapitalize="off"
-        />
+        <div className="input-with-mic">
+          <input
+            ref={inputRef}
+            className="answer-input"
+            type="text"
+            placeholder="Type here…"
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={phase !== 'input'}
+            aria-label="Answer input"
+            autoComplete="off"
+            autoCapitalize="off"
+          />
+          <MicButton
+            ariaLabel="Speak your answer"
+            onResult={(text) => setAnswer((prev) => prev ? `${prev} ${text}` : text)}
+          />
+        </div>
         <button
           className="submit-btn"
           onClick={handleSubmit}
@@ -127,18 +132,24 @@ export default function QuestionScreen({ question, questionIndex, total, isRepea
           </p>
           <p className="retry-correct-answer">{correctDisplay}</p>
           <p className="retry-instruction">Type it out to continue</p>
-          <input
-            ref={retryRef}
-            className="retry-input"
-            type="text"
-            placeholder="Type the answer…"
-            value={retryInput}
-            onChange={(e) => setRetryInput(e.target.value)}
-            onKeyDown={handleRetryKeyDown}
-            autoComplete="off"
-            autoCapitalize="off"
-            aria-label="Type the correct answer"
-          />
+          <div className="input-with-mic">
+            <input
+              ref={retryRef}
+              className="retry-input"
+              type="text"
+              placeholder="Type the answer…"
+              value={retryInput}
+              onChange={(e) => setRetryInput(e.target.value)}
+              onKeyDown={handleRetryKeyDown}
+              autoComplete="off"
+              autoCapitalize="off"
+              aria-label="Type the correct answer"
+            />
+            <MicButton
+              ariaLabel="Speak the correct answer"
+              onResult={(text) => setRetryInput(text)}
+            />
+          </div>
           <button
             className="retry-continue-btn"
             onClick={handleRetrySubmit}

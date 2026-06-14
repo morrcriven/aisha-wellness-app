@@ -6,19 +6,19 @@
 }
 
 :root {
-  --bg: #f5ece8;
-  --green: #2d6a4f;
-  --green-dark: #205240;
-  --green-faint: rgba(45, 106, 79, 0.1);
-  --navy: #1a1a6e;
-  --navy-dark: #111156;
-  --teal: #4bbfbf;
-  --teal-dark: #3aa8a8;
-  --correct: #27ae60;
+  --bg: #ffffff;
+  --green: #5B9164;
+  --green-dark: #3D7A4F;
+  --green-faint: rgba(91, 145, 100, 0.1);
+  --navy: #1F2937;
+  --navy-dark: #111827;
+  --teal: #4DBFBF;
+  --teal-dark: #3AABAB;
+  --correct: #5B9164;
   --wrong: #c0392b;
-  --text: #1a1a2e;
-  --text-mid: #555;
-  --text-light: #999;
+  --text: #1a1a1a;
+  --text-mid: #555555;
+  --text-light: #999999;
   --radius: 10px;
   --ease: 0.22s ease;
 }
@@ -52,6 +52,7 @@ body {
   padding: 72px 28px 32px;
   overflow-y: auto;
   animation: slideIn 0.28s cubic-bezier(0.25, 0.8, 0.25, 1);
+  zoom: var(--font-scale, 1);
 }
 
 @keyframes slideIn {
@@ -88,12 +89,145 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   MIC BUTTON (voice-to-text, shared across screens)
+═══════════════════════════════════════════════════════════ */
+.mic-btn {
+  background: transparent;
+  border: 1.5px solid var(--green);
+  border-radius: 50%;
+  color: var(--green);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  font-family: inherit;
+  transition: background var(--ease), color var(--ease), border-color var(--ease);
+}
+.mic-btn--md { width: 40px; height: 40px; }
+.mic-btn--sm { width: 34px; height: 34px; }
+
+.mic-btn:hover:not(.mic-btn--listening) { background: var(--green-faint); }
+
+.mic-btn--listening {
+  background: var(--wrong);
+  border-color: var(--wrong);
+  color: white;
+  animation: micPulse 1.2s ease-in-out infinite;
+}
+@keyframes micPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.45); }
+  50%      { box-shadow: 0 0 0 8px rgba(192, 57, 43, 0); }
+}
+
+/* Row wrapper: text input on left, mic on right (used by question screen) */
+.input-with-mic {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.input-with-mic .answer-input,
+.input-with-mic .retry-input {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+/* Speaker (read-aloud) button — lives in the app toolbar */
+.speaker-btn {
+  width: 38px;
+  height: 38px;
+  background: transparent;
+  border: 1.5px solid var(--green);
+  border-radius: 50%;
+  color: var(--green);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-family: inherit;
+  transition: background var(--ease), color var(--ease);
+}
+.speaker-btn:hover:not(.speaker-btn--speaking) { background: var(--green-faint); }
+.speaker-btn--speaking {
+  background: var(--green);
+  color: white;
+  animation: speakerPulse 1.4s ease-in-out infinite;
+}
+@keyframes speakerPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(91, 145, 100, 0.45); }
+  50%      { box-shadow: 0 0 0 8px rgba(91, 145, 100, 0); }
+}
+
+/* Textarea with floating mic in the bottom-right corner */
+.textarea-with-mic {
+  position: relative;
+  margin-bottom: 16px;
+}
+.textarea-with-mic .diet-textarea {
+  margin-bottom: 0;
+  padding-right: 56px; /* leave room for the mic */
+}
+.textarea-with-mic .mic-btn {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+}
+
+/* ═══════════════════════════════════════════════════════════
    HOME SCREEN
 ═══════════════════════════════════════════════════════════ */
 .home-screen {
   padding-top: 52px;
   padding-bottom: 0;
 }
+
+/* Top-right toolbar — always shows the speaker, plus text-size buttons on home */
+.app-toolbar {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 30; /* above feedback overlays (z-index: 20) */
+}
+
+/* Text size controls — sit inside .app-toolbar on the home screen */
+.text-size-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.text-size-btn {
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid var(--green);
+  background: transparent;
+  border-radius: 50%;
+  color: var(--green);
+  font-family: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background var(--ease), color var(--ease), opacity var(--ease);
+}
+.text-size-btn:hover:not(:disabled),
+.text-size-btn:active:not(:disabled) {
+  background: var(--green);
+  color: white;
+}
+.text-size-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.text-size-btn--small { font-size: 12px; }
+.text-size-btn--large { font-size: 19px; }
 
 /* Heading shrinks once chat starts */
 .home-heading {
@@ -190,10 +324,10 @@ body {
   border-bottom-right-radius: 4px;
 }
 .message-bubble--ai {
-  background: white;
+  background: #EEF3F8;
   color: var(--text);
   border-bottom-left-radius: 4px;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
 }
 .message-bubble--error {
   background: #fde8e8;
@@ -237,10 +371,10 @@ body {
   display: flex;
   gap: 5px;
   padding: 12px 16px;
-  background: white;
+  background: #EEF3F8;
   border-radius: 18px;
   border-bottom-left-radius: 4px;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
   width: fit-content;
 }
 .typing-dot {
@@ -263,13 +397,13 @@ body {
   align-items: center;
   gap: 10px;
   padding: 12px 0 4px;
-  border-top: 1px solid rgba(26, 26, 110, 0.1);
+  border-top: 1px solid rgba(31, 41, 55, 0.1);
   flex-shrink: 0;
 }
 .chat-text-input {
   flex: 1;
-  background: white;
-  border: 1.5px solid rgba(26, 26, 110, 0.18);
+  background: #FDFCFB;
+  border: 1.5px solid rgba(31, 41, 55, 0.18);
   border-radius: 22px;
   padding: 10px 16px;
   font-size: 15px;
@@ -421,7 +555,7 @@ body {
 .progress-track {
   width: 100%;
   height: 4px;
-  background: rgba(26, 26, 110, 0.12);
+  background: rgba(31, 41, 55, 0.12);
   border-radius: 2px;
   margin-bottom: 36px;
   overflow: hidden;
@@ -459,7 +593,7 @@ body {
 }
 /* "Revisit" badge for repeated questions */
 .category-pill--repeat {
-  background: rgba(26, 26, 110, 0.1);
+  background: rgba(31, 41, 55, 0.1);
   color: var(--navy);
 }
 .question-text {
@@ -640,9 +774,9 @@ body {
 .memory-score-block {
   margin-bottom: 28px;
   padding: 16px 18px;
-  border: 1.5px solid rgba(26, 26, 110, 0.2);
+  border: 1.5px solid rgba(31, 41, 55, 0.2);
   border-radius: var(--radius);
-  background: rgba(26, 26, 110, 0.04);
+  background: rgba(31, 41, 55, 0.04);
 }
 .memory-score-label {
   font-size: 12px;
@@ -655,7 +789,7 @@ body {
 .memory-score-bar-track {
   width: 100%;
   height: 8px;
-  background: rgba(26, 26, 110, 0.12);
+  background: rgba(31, 41, 55, 0.12);
   border-radius: 4px;
   overflow: hidden;
   margin-bottom: 8px;
@@ -819,7 +953,7 @@ body {
   align-items: flex-start;
   gap: 12px;
   padding: 14px 16px;
-  background: white;
+  background: #FDFCFB;
   border-radius: var(--radius);
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
 }
@@ -922,7 +1056,7 @@ body {
   align-items: center;
   gap: 10px;
   padding: 9px 12px;
-  background: white;
+  background: #FDFCFB;
   border-radius: var(--radius);
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
@@ -988,9 +1122,9 @@ body {
 /* Monthly average summary card */
 .sleep-month-avg {
   padding: 16px 20px;
-  border: 1.5px solid rgba(75, 191, 191, 0.35);
+  border: 1.5px solid rgba(168, 196, 184, 0.35);
   border-radius: var(--radius);
-  background: rgba(75, 191, 191, 0.07);
+  background: rgba(168, 196, 184, 0.07);
   margin-bottom: 8px;
   text-align: center;
 }
@@ -1024,33 +1158,145 @@ body {
   line-height: 1.5;
 }
 
-/* Calendar icon area */
-.sleep-calendar-icon-wrap {
-  display: flex;
-  justify-content: center;
-  margin-top: 12px;
-}
-
-/* Date input */
-.sleep-date-input-row {
+/* Bed/wake time inputs */
+.sleep-time-inputs {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 22px;
+  margin-top: 8px;
+  margin-bottom: 18px;
 }
 
-.sleep-date-native {
+.sleep-time-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sleep-time-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.sleep-time-input {
   width: 100%;
   background: transparent;
   border: none;
   border-bottom: 2.5px solid var(--navy);
   padding: 10px 0;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   font-family: inherit;
   color: var(--navy);
   outline: none;
+  transition: border-color var(--ease);
+}
+.sleep-time-input:focus { border-bottom-color: var(--green); }
+
+.sleep-time-result {
+  font-size: 16px;
+  color: var(--text-mid);
   text-align: center;
-  margin-bottom: 8px;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+.sleep-time-result strong {
+  color: var(--green);
+  font-weight: 800;
+}
+
+/* Calendar icon area */
+/* Date input */
+.sleep-date-input-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+/* Inline calendar */
+.sleep-cal {
+  width: 100%;
+  max-width: 340px;
+  margin: 20px auto 8px;
+  padding: 0 4px;
+}
+
+.sleep-cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sleep-cal-month-label {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.sleep-cal-nav {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--navy);
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+}
+.sleep-cal-nav:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.sleep-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.sleep-cal-dow {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #888;
+  padding-bottom: 4px;
+}
+
+.sleep-cal-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--navy);
+  background: none;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  width: 100%;
+}
+.sleep-cal-day:hover:not(:disabled):not(.sleep-cal-day--selected) {
+  background: rgba(31,41,55,0.08);
+}
+.sleep-cal-day--today {
+  border: 2px solid var(--navy);
+}
+.sleep-cal-day--selected {
+  background: var(--navy);
+  color: #fff;
+  font-weight: 700;
+}
+.sleep-cal-day--outside {
+  visibility: hidden;
+}
+.sleep-cal-day--disabled {
+  color: #ccc;
+  cursor: default;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1175,7 +1421,7 @@ body {
   align-items: center;
   gap: 10px;
   padding: 9px 12px;
-  background: white;
+  background: #FDFCFB;
   border-radius: var(--radius);
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
@@ -1255,7 +1501,7 @@ body {
 .diet-upload-area {
   width: 100%;
   min-height: 160px;
-  border: 2px dashed rgba(26,26,110,0.25);
+  border: 2px dashed rgba(31,41,55,0.25);
   border-radius: var(--radius);
   display: flex;
   flex-direction: column;
@@ -1275,7 +1521,7 @@ body {
 .diet-upload-area:hover,
 .diet-upload-area:focus-visible {
   border-color: var(--navy);
-  background: rgba(26,26,110,0.03);
+  background: rgba(31,41,55,0.03);
 }
 
 .diet-upload-area--has-image {
@@ -1305,7 +1551,7 @@ body {
   width: 100%;
   min-height: 90px;
   background: transparent;
-  border: 1.5px solid rgba(26,26,110,0.2);
+  border: 1.5px solid rgba(31,41,55,0.2);
   border-radius: var(--radius);
   padding: 12px 14px;
   font-size: 15px;
@@ -1333,7 +1579,7 @@ body {
 .diet-loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid rgba(45,106,79,0.2);
+  border: 3px solid rgba(92,138,128,0.2);
   border-top-color: var(--green);
   border-radius: 50%;
   animation: spin 0.85s linear infinite;
@@ -1565,7 +1811,7 @@ body {
 
 /* MIND diet tips */
 .diet-mind-summary {
-  border: 1.5px solid rgba(26,26,110,0.15);
+  border: 1.5px solid rgba(31,41,55,0.15);
   border-radius: var(--radius);
   padding: 14px 16px;
   margin-bottom: 8px;

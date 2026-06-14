@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { questions, selectQuestionsForSession, updateQuestionHistory } from './data/questions'
+import { useState, useEffect } from 'react'
+import { initBank, selectForSession, recordAttempt, ensureUnseen } from './utils/questionBank'
 import HomeScreen from './components/HomeScreen'
 import SetupScreen from './components/SetupScreen'
 import QuestionScreen from './components/QuestionScreen'
@@ -10,8 +10,12 @@ import DietScreen from './components/DietScreen'
 import DietLogScreen from './components/DietLogScreen'
 import DietAnalysisScreen from './components/DietAnalysisScreen'
 import DietRecsScreen from './components/DietRecsScreen'
+import SpeakerButton from './components/SpeakerButton'
 
-const MAX_QUESTIONS = questions.length
+// The bank tops itself up on demand, so this is just a UI sanity cap.
+const MAX_QUESTIONS = 30
+
+const FONT_SCALES = [0.85, 1, 1.15, 1.3, 1.5]
 
 // ─── localStorage helpers ──────────────────────────────────
 function loadJSON(key, fallback) {
@@ -25,10 +29,37 @@ function saveJSON(key, value) {
 export default function App() {
   const [screen, setScreen] = useState('home')
 
-  // Question history: { [id]: { attempts, correctAttempts, lastSeen, lastCorrect } }
-  const [questionHistory, setQuestionHistory] = useState(() =>
-    loadJSON('aisha_question_history', {})
-  )
+  // Text size scale — persisted across sessions
+  const [fontScale, setFontScale] = useState(() => {
+    const stored = parseFloat(localStorage.getItem('aisha_font_scale'))
+    return FONT_SCALES.includes(stored) ? stored : 1
+  })
+
+  useEffect(() => {
+    localStorage.setItem('aisha_font_scale', String(fontScale))
+  }, [fontScale])
+
+  function handleFontScaleStep(delta) {
+    const i = FONT_SCALES.indexOf(fontScale)
+    const next = Math.min(FONT_SCALES.length - 1, Math.max(0, i + delta))
+    setFontScale(FONT_SCALES[next])
+  }
+  const canShrinkText = FONT_SCALES.indexOf(fontScale) > 0
+  const canGrowText   = FONT_SCALES.indexOf(fontScale) < FONT_SCALES.length - 1
+
+  // Question bank — initialised on mount, persisted in IndexedDB
+  const [bankReady,   setBankReady]   = useState(false)
+  const [bankError,   setBankError]   = useState('')
+  const [bankLoading, setBankLoading] = useState(false) // true while topping up
+
+  useEffect(() => {
+    initBank()
+      .then(() => setBankReady(true))
+      .catch(e => {
+        console.error(e)
+        setBankError('Could not load the question bank.')
+      })
+  }, [])
 
   // Session history: { date, score, total, memoryScore, memoryTotal }[]
   const [sessionHistory, setSessionHistory] = useState(() =>
@@ -101,20 +132,42 @@ export default function App() {
     else setScreen('coming-soon-' + feat)
   }
 
-  function handleStartGame(count) {
-    const { questions: selected, repeatIds: rids } = selectQuestionsForSession(
-      questions,
-      questionHistory,
-      Math.min(count, MAX_QUESTIONS)
-    )
-    setGameQuestions(selected)
-    setRepeatIds(rids)
-    setCurrentIndex(0)
-    setAnswers([])
-    setScreen('game')
+  async function handleStartGame(count) {
+    const clamped = Math.min(count, MAX_QUESTIONS)
+    setBankLoading(true)
+    setBankError('')
+    try {
+      // 80% of the session is meant to be unseen — and keep a 25-question buffer
+      // so the bank always has fresh material ready for next time.
+      const neededUnseen = Math.max(Math.ceil(clamped * 0.8), 25)
+      const topUp = await ensureUnseen(neededUnseen)
+      if (!topUp.ok) {
+        // Generation failed (offline / no API key). We continue with what we have;
+        // selectForSession will overflow into the correct/wrong pools.
+        console.warn('Question top-up failed:', topUp.error)
+      } else if (topUp.generated > 0) {
+        console.log(`Question bank topped up with ${topUp.generated} new questions.`)
+      }
+      const { questions: selected, repeatIds: rids } = selectForSession(clamped)
+      if (selected.length === 0) {
+        setBankError("Couldn't load any questions. Check your connection and try again.")
+        return
+      }
+      setGameQuestions(selected)
+      setRepeatIds(rids)
+      setCurrentIndex(0)
+      setAnswers([])
+      setScreen('game')
+    } finally {
+      setBankLoading(false)
+    }
   }
 
   function handleAnswer(isCorrect) {
+    // Record the attempt against the bank immediately so progress survives a refresh mid-game.
+    const currentQ = gameQuestions[currentIndex]
+    if (currentQ) recordAttempt(currentQ.id, isCorrect)
+
     const newAnswers = [...answers, isCorrect]
     setAnswers(newAnswers)
 
@@ -123,19 +176,13 @@ export default function App() {
       const rawScore  = newAnswers.filter(Boolean).length
       const rawTotal  = gameQuestions.length
 
-      // Memory score: how well did they do on repeated questions?
+      // Memory score: how well did they do on revisited questions?
       const repeatResults = gameQuestions
         .map((q, i) => ({ isRepeat: repeatIds.has(q.id), correct: newAnswers[i] }))
         .filter((r) => r.isRepeat)
       const memoryScore = repeatResults.filter((r) => r.correct).length
       const memoryTotal = repeatResults.length
 
-      // Update per-question history
-      const newHistory = updateQuestionHistory(gameQuestions, newAnswers, questionHistory)
-      setQuestionHistory(newHistory)
-      saveJSON('aisha_question_history', newHistory)
-
-      // Save session
       const session = {
         date: new Date().toISOString(),
         score:       rawScore,
@@ -156,7 +203,34 @@ export default function App() {
   const lastSession = sessionHistory[sessionHistory.length - 1]
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={{ '--font-scale': fontScale }}>
+      {/* Persistent top-right toolbar: speaker on every screen + text-size on home */}
+      <div className="app-toolbar">
+        {screen === 'home' && (
+          <div className="text-size-controls" role="group" aria-label="Adjust text size">
+            <button
+              type="button"
+              className="text-size-btn text-size-btn--small"
+              onClick={() => handleFontScaleStep(-1)}
+              disabled={!canShrinkText}
+              aria-label="Decrease text size"
+            >
+              A
+            </button>
+            <button
+              type="button"
+              className="text-size-btn text-size-btn--large"
+              onClick={() => handleFontScaleStep(1)}
+              disabled={!canGrowText}
+              aria-label="Increase text size"
+            >
+              A
+            </button>
+          </div>
+        )}
+        <SpeakerButton />
+      </div>
+
       {screen === 'home' && (
         <HomeScreen
           onSelect={handleSelectFeature}
@@ -169,6 +243,9 @@ export default function App() {
       {screen === 'setup' && (
         <SetupScreen
           maxQuestions={MAX_QUESTIONS}
+          bankReady={bankReady}
+          bankLoading={bankLoading}
+          bankError={bankError}
           onBack={() => setScreen('home')}
           onStart={handleStartGame}
         />

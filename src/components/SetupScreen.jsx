@@ -2,13 +2,21 @@ import { useState } from 'react'
 
 const PRESETS = [5, 10, 15]
 
-export default function SetupScreen({ maxQuestions, onBack, onStart }) {
+export default function SetupScreen({
+  maxQuestions,
+  bankReady = true,
+  bankLoading = false,
+  bankError = '',
+  onBack,
+  onStart,
+}) {
   const [selected, setSelected] = useState(null)
   const [customValue, setCustomValue] = useState('')
   const [hint, setHint] = useState('')
 
   const resolvedCount = selected ?? (customValue ? parseInt(customValue, 10) : null)
   const isValid = resolvedCount && resolvedCount >= 1 && resolvedCount <= maxQuestions
+  const canStart = isValid && bankReady && !bankLoading
 
   function handleCustomChange(e) {
     const val = e.target.value.replace(/\D/g, '')
@@ -31,7 +39,7 @@ export default function SetupScreen({ maxQuestions, onBack, onStart }) {
   }
 
   function handleStart() {
-    if (!isValid) return
+    if (!canStart) return
     const clamped = Math.min(Math.max(resolvedCount, 1), maxQuestions)
     onStart(clamped)
   }
@@ -71,12 +79,18 @@ export default function SetupScreen({ maxQuestions, onBack, onStart }) {
       />
       <p className="input-hint">{hint || `Choose between 1 – ${maxQuestions}`}</p>
 
+      {bankError && <p className="input-hint" style={{ color: 'var(--wrong)' }}>{bankError}</p>}
+
       <button
         className="start-btn"
         onClick={handleStart}
-        disabled={!isValid}
+        disabled={!canStart}
       >
-        Start game
+        {bankLoading
+          ? 'Loading questions…'
+          : !bankReady
+            ? 'Preparing bank…'
+            : 'Start game'}
       </button>
 
       <div className="home-indicator" />

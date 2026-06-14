@@ -97,17 +97,17 @@ export default function ProgressChart({ sessions }) {
 
       {/* Area — navy memory score (behind) */}
       {areaPath(series2) && (
-        <path d={areaPath(series2)} fill="#1a1a6e" fillOpacity="0.45" />
+        <path d={areaPath(series2)} fill="#6B7DB3" fillOpacity="0.45" />
       )}
 
       {/* Area — teal raw score (front) */}
-      <path d={areaPath(series1)} fill="#4bbfbf" fillOpacity="0.55" />
+      <path d={areaPath(series1)} fill="#A8C4B8" fillOpacity="0.6" />
 
       {/* Dots — raw score */}
       {series1.map((p, i) => (
         <circle key={i}
           cx={p.x} cy={p.y} r="3"
-          fill={data[i].isReal ? '#4bbfbf' : '#9adada'}
+          fill={data[i].isReal ? '#A8C4B8' : '#C5D5E8'}
           stroke="white" strokeWidth="1"
         />
       ))}
@@ -117,7 +117,7 @@ export default function ProgressChart({ sessions }) {
         p ? (
           <circle key={i}
             cx={p.x} cy={p.y} r="3"
-            fill={data[i].isReal ? '#1a1a6e' : '#8888bb'}
+            fill={data[i].isReal ? '#6B7DB3' : '#B0BBDB'}
             stroke="white" strokeWidth="1"
           />
         ) : null
@@ -129,7 +129,7 @@ export default function ProgressChart({ sessions }) {
           <text key={i}
             x={getX(i)} y={padT + cH + 14}
             textAnchor="middle" fontSize="8"
-            fill={d.isReal ? '#555' : '#aaa'}
+            fill={d.isReal ? '#5A6A72' : '#9BA8B0'}
           >
             {d.label}
           </text>

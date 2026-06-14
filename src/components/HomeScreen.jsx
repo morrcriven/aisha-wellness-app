@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { chatWithAisha } from '../utils/openai'
+import MicButton from './MicButton'
 
 const FEATURES = [
   { id: 'memory', label: 'Memory\nGame', icon: <BrainIcon /> },
@@ -7,7 +8,12 @@ const FEATURES = [
   { id: 'diet',   label: 'Diet',          icon: <LeafIcon /> },
 ]
 
-export default function HomeScreen({ onSelect, sessions = [], sleepLogs = [], dietLogs = [] }) {
+export default function HomeScreen({
+  onSelect,
+  sessions = [],
+  sleepLogs = [],
+  dietLogs = [],
+}) {
   const [input, setInput]       = useState('')
   const [messages, setMessages] = useState([])
   const [loading, setLoading]   = useState(false)
@@ -112,6 +118,11 @@ export default function HomeScreen({ onSelect, sessions = [], sleepLogs = [], di
           disabled={loading}
           aria-label="Chat input"
           autoComplete="off"
+        />
+        <MicButton
+          size="sm"
+          ariaLabel="Speak your message"
+          onResult={(text) => setInput((prev) => prev ? `${prev} ${text}` : text)}
         />
         <button
           className="chat-send-btn"

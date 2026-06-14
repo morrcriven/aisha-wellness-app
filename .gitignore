@@ -1,4 +1,18 @@
+# Dependencies / build output
 node_modules/
 dist/
-.env.local
+
+# Local environment / secrets
 .env
+.env.local
+.env.*.local
+
+# Editor / OS clutter
+.DS_Store
+.idea/
+.vscode/
+*.swp
+.claude/settings.local.json
+
+# Working docs (PDFs / design files — not source code)
+*.pdf

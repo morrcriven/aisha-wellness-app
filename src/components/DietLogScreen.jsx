@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import MicButton from './MicButton'
 
 export default function DietLogScreen({ onAnalyse, onBack }) {
   const [imageDataUrl, setImageDataUrl] = useState(null)
@@ -59,13 +60,20 @@ export default function DietLogScreen({ onAnalyse, onBack }) {
       {/* Text description */}
       <p className="diet-section-label">Or describe your meal here…</p>
 
-      <textarea
-        className="diet-textarea"
-        placeholder="e.g. Grilled salmon with leafy salad and olive oil dressing"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        rows={4}
-      />
+      <div className="textarea-with-mic">
+        <textarea
+          className="diet-textarea"
+          placeholder="e.g. Grilled salmon with leafy salad and olive oil dressing"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={4}
+        />
+        <MicButton
+          size="sm"
+          ariaLabel="Speak your meal description"
+          onResult={(text) => setDescription((prev) => prev ? `${prev} ${text}` : text)}
+        />
+      </div>
 
       <div className="diet-action-row">
         <button

@@ -91,9 +91,106 @@ export const questions = [
   },
 ]
 
+// ── Spelling-tolerant answer checking ───────────────────────────────────
+
+function normalise(s) {
+  return String(s)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\- ]/g, '')   // drop punctuation, keep hyphens & spaces
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// Damerau-Levenshtein distance (treats letter swaps as 1 edit, e.g. "purpel"↔"purple")
+function editDistance(a, b) {
+  if (a === b) return 0
+  if (!a.length) return b.length
+  if (!b.length) return a.length
+  const m = a.length, n = b.length
+  const d = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
+  for (let i = 0; i <= m; i++) d[i][0] = i
+  for (let j = 0; j <= n; j++) d[0][j] = j
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      d[i][j] = Math.min(
+        d[i - 1][j]     + 1,   // deletion
+        d[i][j - 1]     + 1,   // insertion
+        d[i - 1][j - 1] + cost // substitution
+      )
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1) // transposition
+      }
+    }
+  }
+  return d[m][n]
+}
+
+// How many edits we'll forgive, based on the longer string's length.
+// Short answers (≤3 chars) must match exactly — letting "9" pass for "8" would be wrong.
+function spellingThreshold(len) {
+  if (len <= 3) return 0
+  if (len <= 7) return 1
+  return 2
+}
+
+// ── Number ↔ word equivalence (0-99) ────────────────────────────────────
+const ONES = [
+  'zero','one','two','three','four','five','six','seven','eight','nine',
+  'ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen',
+  'seventeen','eighteen','nineteen',
+]
+const TENS = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety']
+
+function numberToWords(n) {
+  if (n < 0 || n > 99) return null
+  if (n < 20) return ONES[n]
+  const t = Math.floor(n / 10), o = n % 10
+  return o === 0 ? TENS[t] : `${TENS[t]}-${ONES[o]}`
+}
+
+// Pre-built lookup so "seven" → "7", "twenty-three"/"twenty three" → "23", etc.
+const WORD_TO_NUM = {}
+for (let n = 0; n < 100; n++) {
+  const w = numberToWords(n)
+  if (!w) continue
+  WORD_TO_NUM[w] = String(n)
+  if (w.includes('-')) {
+    WORD_TO_NUM[w.replace('-', ' ')] = String(n)
+    WORD_TO_NUM[w.replace('-', '')]  = String(n)
+  }
+}
+
+// Return all equivalent forms of one accepted answer.
+function expandAnswer(answer) {
+  const variants = new Set([answer])
+  if (/^\d+$/.test(answer)) {
+    const word = numberToWords(parseInt(answer, 10))
+    if (word) {
+      variants.add(word)
+      if (word.includes('-')) {
+        variants.add(word.replace('-', ' '))
+        variants.add(word.replace('-', ''))
+      }
+    }
+  }
+  if (answer in WORD_TO_NUM) variants.add(WORD_TO_NUM[answer])
+  return [...variants]
+}
+
 export function checkAnswer(userAnswer, correctAnswers) {
-  const normalised = userAnswer.trim().toLowerCase()
-  return correctAnswers.some((ans) => ans.toLowerCase() === normalised)
+  const user = normalise(userAnswer)
+  if (!user) return false
+  for (const raw of correctAnswers) {
+    const correct = normalise(raw)
+    for (const variant of expandAnswer(correct)) {
+      if (variant === user) return true
+      const threshold = spellingThreshold(Math.max(variant.length, user.length))
+      if (threshold > 0 && editDistance(user, variant) <= threshold) return true
+    }
+  }
+  return false
 }
 
 export function getRecommendation(score, total) {

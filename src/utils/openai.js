@@ -129,6 +129,84 @@ export async function analyseMealImage(imageDataUrl, description) {
   }
 }
 
+const QUESTION_GEN_SYSTEM = `You generate short memory-quiz questions for older adults using a brain-training app.
+
+Each question MUST have:
+- A short factual question (under 90 chars).
+- An "answer" array of 1-4 acceptable answer strings, ALL lowercase, each under 20 chars. Include common variants (e.g. ["32","thirty-two"], ["uk","united kingdom"]).
+- A "category" from this exact list: "Recall", "Pattern", "Arithmetic", "Vocabulary", "Geography".
+
+DIFFICULTY: easy to moderate. Suitable for adults aged 50+ to train memory.
+VARIETY: spread the questions across multiple categories.
+
+Return ONLY valid JSON, no markdown, matching this shape:
+{"questions":[{"question":"...","answer":["..."],"category":"Recall"}]}`
+
+/**
+ * Generate `n` new memory-quiz questions via OpenAI.
+ * `recentQuestions` is an optional list of existing question strings the model
+ * should avoid duplicating.
+ *
+ * Returns:
+ *   { ok: true,  questions: [{ question, answer: string[], category }] }
+ *   { ok: false, error: string }
+ */
+export async function generateQuestions(n, recentQuestions = []) {
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
+  if (!apiKey || apiKey === 'your_openai_api_key_here') {
+    return { ok: false, error: 'No API key set.' }
+  }
+
+  const avoidNote = recentQuestions.length
+    ? `\n\nDO NOT duplicate or closely mirror these existing questions:\n- ${recentQuestions.slice(0, 25).join('\n- ')}`
+    : ''
+  const userMsg = `Generate exactly ${n} questions.${avoidNote}`
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: QUESTION_GEN_SYSTEM },
+          { role: 'user',   content: userMsg },
+        ],
+        max_tokens: 2000,
+        temperature: 0.9,
+        response_format: { type: 'json_object' },
+      }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      return { ok: false, error: err.error?.message || `API error ${res.status}` }
+    }
+    const data = await res.json()
+    const raw = data.choices?.[0]?.message?.content?.trim() ?? '{}'
+    const parsed = JSON.parse(raw)
+    const out = []
+    for (const q of parsed.questions ?? []) {
+      if (
+        typeof q.question === 'string' && q.question.trim() &&
+        Array.isArray(q.answer) && q.answer.length > 0 &&
+        q.answer.every(a => typeof a === 'string' && a.trim())
+      ) {
+        out.push({
+          question: q.question.trim(),
+          answer:   q.answer.map(a => a.trim().toLowerCase()),
+          category: (q.category && String(q.category).trim()) || 'Recall',
+        })
+      }
+    }
+    return { ok: true, questions: out }
+  } catch {
+    return { ok: false, error: 'Failed to generate questions.' }
+  }
+}
+
 export async function chatWithAisha(userMessage) {
   const apiKey = import.meta.env.VITE_OPENAI_API_KEY
 

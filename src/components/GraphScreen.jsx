@@ -8,12 +8,12 @@ export default function GraphScreen({ sessions, onHome }) {
     <div className="screen graph-screen">
       <div className="chart-legend">
         <span className="legend-item">
-          <span className="legend-dot" style={{ background: '#4bbfbf' }} />
+          <span className="legend-dot" style={{ background: '#A8C4B8' }} />
           Raw Score
         </span>
         {hasMemory && (
           <span className="legend-item">
-            <span className="legend-dot" style={{ background: '#1a1a6e' }} />
+            <span className="legend-dot" style={{ background: '#6B7DB3' }} />
             Memory Score
           </span>
         )}

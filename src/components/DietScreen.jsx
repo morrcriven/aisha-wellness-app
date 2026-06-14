@@ -3,10 +3,10 @@ import { useState } from 'react'
 const MIND_TARGETS = { fruitsVeg: 40, protein: 25, fibreCarbs: 25, fats: 10 }
 
 const COLORS = {
-  fruitsVeg:  '#5b9bd5',
-  protein:    '#6ab04c',
-  fibreCarbs: '#c87941',
-  fats:       '#9179c0',
+  fruitsVeg:  '#6B7DB3',
+  protein:    '#5C8A80',
+  fibreCarbs: '#E8CEBA',
+  fats:       '#A8C4B8',
 }
 
 const LABELS = {
