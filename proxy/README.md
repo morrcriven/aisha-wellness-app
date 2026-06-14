@@ -73,9 +73,9 @@ check, the bill can't exceed this.
 ## How the protection works
 
 - **Origin allow-list** ([src/index.js](src/index.js)): rejects any request
-  whose `Origin` header isn't `https://morrcriven.github.io` or a localhost
-  Vite dev server. A `curl` from a random script has no `Origin` and is
-  blocked.
+  whose `Origin` header isn't `https://aishamitha4321.github.io` or a
+  localhost Vite dev server. A `curl` from a random script has no `Origin`
+  and is blocked.
 - **Path allow-list**: only `/v1/chat/completions` is forwarded; other
   OpenAI endpoints (fine-tuning, embeddings, etc.) return 404.
 - **Method allow-list**: GETs return 405.

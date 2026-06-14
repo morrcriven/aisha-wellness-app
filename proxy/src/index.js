@@ -21,7 +21,7 @@
  */
 
 const ALLOWED_ORIGINS = [
-  'https://morrcriven.github.io',
+  'https://aishamitha4321.github.io',
   'http://localhost:5173',  // vite dev
   'http://localhost:4173',  // vite preview
 ]
