@@ -11,6 +11,34 @@
  * supplemented by any [link](url) pairs the model includes in its response.
  */
 
+// ── Endpoint resolution ─────────────────────────────────────────────────
+// Two modes:
+//   1. PROXY (production / Pages):  VITE_OPENAI_PROXY_URL points to the
+//      Cloudflare Worker. The key lives server-side; no Authorization
+//      header is sent from the browser.
+//   2. DIRECT (local dev):  VITE_OPENAI_API_KEY in .env.local. Calls go
+//      straight to api.openai.com with the key in the Authorization header.
+const PROXY_URL = import.meta.env.VITE_OPENAI_PROXY_URL
+const API_KEY   = import.meta.env.VITE_OPENAI_API_KEY
+
+const CHAT_ENDPOINT = PROXY_URL
+  ? `${PROXY_URL.replace(/\/$/, '')}/v1/chat/completions`
+  : 'https://api.openai.com/v1/chat/completions'
+
+function openaiConfigured() {
+  if (PROXY_URL) return true
+  return API_KEY && API_KEY !== 'your_openai_api_key_here'
+}
+
+function openaiHeaders() {
+  const headers = { 'Content-Type': 'application/json' }
+  if (!PROXY_URL && API_KEY) headers.Authorization = `Bearer ${API_KEY}`
+  return headers
+}
+
+const NOT_CONFIGURED_MSG =
+  'AI features are not set up. Add VITE_OPENAI_API_KEY to .env.local (dev) or VITE_OPENAI_PROXY_URL to .env.production (build).'
+
 const SYSTEM_PROMPT = `You are Aisha, a friendly and knowledgeable health & wellness AI assistant built into a mobile app.
 
 The app has three features — detect the user's intent and respond accordingly:
@@ -78,10 +106,7 @@ Rules:
 Be reasonable. If the image is unclear, rely on the description.`
 
 export async function analyseMealImage(imageDataUrl, description) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
-  if (!apiKey || apiKey === 'your_openai_api_key_here') {
-    return { ok: false, error: 'No API key set. Add your OpenAI key to .env.local.' }
-  }
+  if (!openaiConfigured()) return { ok: false, error: NOT_CONFIGURED_MSG }
 
   const userText = description?.trim()
     ? `User description: ${description.trim()}`
@@ -94,9 +119,9 @@ export async function analyseMealImage(imageDataUrl, description) {
   content.push({ type: 'text', text: DIET_ANALYSIS_PROMPT + '\n\n' + userText })
 
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetch(CHAT_ENDPOINT, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      headers: openaiHeaders(),
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content }],
@@ -152,10 +177,7 @@ Return ONLY valid JSON, no markdown, matching this shape:
  *   { ok: false, error: string }
  */
 export async function generateQuestions(n, recentQuestions = []) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
-  if (!apiKey || apiKey === 'your_openai_api_key_here') {
-    return { ok: false, error: 'No API key set.' }
-  }
+  if (!openaiConfigured()) return { ok: false, error: NOT_CONFIGURED_MSG }
 
   const avoidNote = recentQuestions.length
     ? `\n\nDO NOT duplicate or closely mirror these existing questions:\n- ${recentQuestions.slice(0, 25).join('\n- ')}`
@@ -163,12 +185,9 @@ export async function generateQuestions(n, recentQuestions = []) {
   const userMsg = `Generate exactly ${n} questions.${avoidNote}`
 
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetch(CHAT_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: openaiHeaders(),
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
@@ -208,20 +227,13 @@ export async function generateQuestions(n, recentQuestions = []) {
 }
 
 export async function chatWithAisha(userMessage) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY
-
-  if (!apiKey || apiKey === 'your_openai_api_key_here') {
-    return { type: 'error', message: 'No API key set. Add your OpenAI key to .env.local.' }
-  }
+  if (!openaiConfigured()) return { type: 'error', message: NOT_CONFIGURED_MSG }
 
   let data
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetch(CHAT_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: openaiHeaders(),
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [

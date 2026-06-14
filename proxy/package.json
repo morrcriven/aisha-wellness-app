@@ -1,0 +1,15 @@
+{
+  "name": "aisha-wellness-proxy",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Cloudflare Worker that proxies OpenAI calls for the Aisha wellness app, keeping the API key off the client.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "secret": "wrangler secret put OPENAI_API_KEY",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^3.78.0"
+  }
+}

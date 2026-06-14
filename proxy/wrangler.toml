@@ -1,0 +1,7 @@
+name = "aisha-wellness-proxy"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# The OPENAI_API_KEY secret is set via:
+#   npx wrangler secret put OPENAI_API_KEY
+# (See README.md in this directory.)
