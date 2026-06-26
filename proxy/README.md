@@ -1,8 +1,14 @@
-# Aisha OpenAI proxy (Cloudflare Worker)
+# Aisha API proxy (Cloudflare Worker)
 
-A tiny Cloudflare Worker that forwards `POST /v1/chat/completions` calls from
-the deployed Aisha frontend to OpenAI, with the API key stored as a
-server-side secret rather than in the browser bundle.
+A tiny Cloudflare Worker that the deployed Aisha frontend talks to. It
+holds all third-party API keys as server-side secrets so they never enter
+the browser bundle.
+
+Routes:
+- `POST /v1/chat/completions` → forwards to OpenAI (chat, vision, question
+  generation).
+- `POST /tts` → forwards to Baseten's Orpheus TTS deployment, wraps the
+  raw PCM stream in a WAV header, returns `audio/wav`.
 
 ## One-time deploy steps
 
@@ -40,6 +46,26 @@ When it prompts, paste the key from your `.env.local` (the
 `sk-proj-…` value). The secret is encrypted at rest and never appears in
 logs or the dashboard.
 
+### 4b. (Optional) Set up Orpheus TTS via Baseten
+
+Skip this if you don't need the natural-sounding read-aloud feature — the
+SpeakerButton will fall back to the browser's built-in voice.
+
+1. Sign up at https://baseten.co (free tier requires a card)
+2. Open https://www.baseten.co/library/orpheus-tts/ → click **Deploy**
+3. Once it's deployed, Baseten shows a model URL like
+   `https://model-abc123.api.baseten.co/environments/production/predict`
+4. In the Baseten dashboard → **API keys** → create a new key
+5. Store both as Worker secrets:
+
+```bash
+npx wrangler secret put BASETEN_MODEL_URL   # paste the model URL
+npx wrangler secret put BASETEN_API_KEY     # paste the API key
+```
+
+Without these the `/tts` route returns 500 and the frontend falls back
+to the browser's voice — nothing breaks.
+
 ### 5. Deploy
 
 ```bash
@@ -68,7 +94,9 @@ check, the bill can't exceed this.
 | `npx wrangler dev` | Runs the worker locally on `http://localhost:8787` |
 | `npx wrangler deploy` | Redeploys after editing `src/index.js` |
 | `npx wrangler tail` | Streams live request logs |
-| `npx wrangler secret put OPENAI_API_KEY` | Rotates the stored key |
+| `npx wrangler secret put OPENAI_API_KEY` | Rotates the stored OpenAI key |
+| `npx wrangler secret put BASETEN_API_KEY` | Rotates the stored Baseten key |
+| `npx wrangler secret list` | Lists which secrets are set (without revealing them) |
 
 ## How the protection works
 

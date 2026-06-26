@@ -1,63 +1,134 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-// Browser-native Text-To-Speech. No API cost, no permission prompt.
-// Works in Chrome, Edge, Safari (incl. iOS), Firefox.
-const synthSupported =
-  typeof window !== 'undefined' && 'speechSynthesis' in window
+// Two-tier text-to-speech:
+//  1. If a proxy URL is configured (prod build), call /tts on the Cloudflare
+//     Worker, which forwards to Orpheus on Baseten and returns a WAV.
+//  2. Otherwise (local dev, or proxy unreachable), fall back to the
+//     browser's built-in SpeechSynthesis.
+const PROXY_URL       = import.meta.env.VITE_OPENAI_PROXY_URL
+const synthSupported  = typeof window !== 'undefined' && 'speechSynthesis' in window
 
-/**
- * Get the visible text from the current screen.
- * If a feedback overlay is active (e.g. wrong-answer retry), prefer its text
- * since that's what the user is actually looking at.
- */
 function getCurrentPageText() {
   const overlay = document.querySelector('.feedback-overlay')
   const target  = overlay || document.querySelector('.screen')
   if (!target) return ''
-  // innerText reflects visibility / line breaks, unlike textContent
   return target.innerText.replace(/\s+/g, ' ').trim()
 }
 
 export default function SpeakerButton() {
-  const [speaking, setSpeaking] = useState(false)
+  // 'idle' | 'loading' (waiting on Orpheus) | 'speaking' (audio playing)
+  const [state, setState] = useState('idle')
+  const audioRef = useRef(null)
+  const urlRef   = useRef(null)
 
-  // Cancel any in-flight speech on unmount
   useEffect(() => {
-    return () => {
-      if (synthSupported) window.speechSynthesis.cancel()
-    }
+    return () => stopEverything()
   }, [])
 
-  if (!synthSupported) return null
+  function stopEverything() {
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
+    }
+    if (urlRef.current) {
+      URL.revokeObjectURL(urlRef.current)
+      urlRef.current = null
+    }
+    if (synthSupported) window.speechSynthesis.cancel()
+  }
 
-  function handleClick() {
-    const synth = window.speechSynthesis
-    if (speaking) {
-      synth.cancel()
-      setSpeaking(false)
+  function fallbackToBrowser(text) {
+    if (!synthSupported) {
+      setState('idle')
       return
     }
-    const text = getCurrentPageText()
-    if (!text) return
-    synth.cancel() // ensure nothing is queued
+    const synth = window.speechSynthesis
+    synth.cancel()
     const u = new SpeechSynthesisUtterance(text)
     u.lang  = (typeof navigator !== 'undefined' && navigator.language) || 'en-US'
     u.rate  = 1.0
     u.pitch = 1.0
-    u.onend   = () => setSpeaking(false)
-    u.onerror = () => setSpeaking(false)
+    u.onend   = () => setState('idle')
+    u.onerror = () => setState('idle')
     synth.speak(u)
-    setSpeaking(true)
+    setState('speaking')
   }
+
+  async function start() {
+    const text = getCurrentPageText()
+    if (!text) return
+
+    // Try the Worker /tts route (Orpheus via Baseten) first.
+    if (PROXY_URL) {
+      setState('loading')
+      try {
+        const res = await fetch(`${PROXY_URL.replace(/\/$/, '')}/tts`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ text }),
+        })
+        if (!res.ok) {
+          console.warn('TTS proxy returned', res.status, '— falling back to browser speech')
+          fallbackToBrowser(text)
+          return
+        }
+        const blob = await res.blob()
+        const url  = URL.createObjectURL(blob)
+        urlRef.current = url
+        const audio = new Audio(url)
+        audio.onended = () => {
+          URL.revokeObjectURL(url)
+          urlRef.current = null
+          audioRef.current = null
+          setState('idle')
+        }
+        audio.onerror = () => {
+          URL.revokeObjectURL(url)
+          urlRef.current = null
+          audioRef.current = null
+          setState('idle')
+        }
+        audioRef.current = audio
+        setState('speaking')
+        await audio.play()
+        return
+      } catch (e) {
+        console.warn('TTS proxy failed:', e, '— falling back to browser speech')
+        fallbackToBrowser(text)
+        return
+      }
+    }
+
+    // No proxy configured (e.g. local dev): use SpeechSynthesis directly.
+    setState('speaking')
+    fallbackToBrowser(text)
+  }
+
+  function handleClick() {
+    if (state === 'idle') {
+      start()
+    } else {
+      stopEverything()
+      setState('idle')
+    }
+  }
+
+  // Nothing we can do if neither path is available.
+  if (!PROXY_URL && !synthSupported) return null
+
+  const active = state !== 'idle'
+  const label  = state === 'loading'  ? 'Generating speech…'
+              : state === 'speaking' ? 'Stop reading'
+              :                        'Read page aloud'
 
   return (
     <button
       type="button"
-      className={`speaker-btn${speaking ? ' speaker-btn--speaking' : ''}`}
+      className={`speaker-btn${active ? ' speaker-btn--speaking' : ''}`}
       onClick={handleClick}
-      aria-label={speaking ? 'Stop reading' : 'Read page aloud'}
-      aria-pressed={speaking}
-      title={speaking ? 'Stop reading' : 'Read page aloud'}
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
     >
       <SpeakerIcon />
     </button>
