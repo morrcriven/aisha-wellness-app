@@ -10,6 +10,7 @@
   --green: #5B9164;
   --green-dark: #3D7A4F;
   --green-faint: rgba(91, 145, 100, 0.1);
+  --green-light: #67ad5c;
   --navy: #1F2937;
   --navy-dark: #111827;
   --teal: #4DBFBF;
@@ -138,10 +139,10 @@ body {
 .speaker-btn {
   width: 38px;
   height: 38px;
-  background: transparent;
+  background: var(--green-light);
   border: 1.5px solid var(--green);
   border-radius: 50%;
-  color: var(--green);
+  color: white;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -205,9 +206,9 @@ body {
   width: 36px;
   height: 36px;
   border: 1.5px solid var(--green);
-  background: transparent;
+  background: var(--green-light);
   border-radius: 50%;
-  color: var(--green);
+  color: white;
   font-family: inherit;
   font-weight: 800;
   cursor: pointer;
@@ -269,8 +270,8 @@ body {
 }
 
 .option-card {
-  border: 2px solid var(--navy);
-  background: transparent;
+  border: none;
+  background: var(--green-light);
   border-radius: var(--radius);
   padding: 22px 8px 18px;
   cursor: pointer;
@@ -279,14 +280,14 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  color: var(--navy);
+  color: white;
   font-size: 13px;
   font-weight: 700;
   font-family: inherit;
   line-height: 1.3;
   text-align: center;
 }
-.option-card svg { color: var(--navy); transition: color var(--ease); }
+.option-card svg { color: white; transition: color var(--ease); }
 .option-card:hover,
 .option-card:active { background: var(--navy); color: white; }
 .option-card:hover svg { color: white; }

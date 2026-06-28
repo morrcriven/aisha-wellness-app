@@ -3,9 +3,9 @@ import { chatWithAisha } from '../utils/openai'
 import MicButton from './MicButton'
 
 const FEATURES = [
-  { id: 'memory', label: 'Memory\nGame', icon: <BrainIcon /> },
-  { id: 'sleep',  label: 'Sleep\nTrack',  icon: <MoonIcon /> },
-  { id: 'diet',   label: 'Diet',          icon: <LeafIcon /> },
+  { id: 'memory', label: 'Memory', icon: <BrainIcon /> },
+  { id: 'sleep',  label: 'Sleep',  icon: <MoonIcon /> },
+  { id: 'diet',   label: 'Diet',   icon: <LeafIcon /> },
 ]
 
 export default function HomeScreen({
@@ -102,8 +102,6 @@ export default function HomeScreen({
           <SummaryItem icon={<LeafIconSmall />}  text={getDietSummary(dietLogs)} muted={dietLogs.length === 0} />
         </div>
       )}
-
-      {hasMessages && <div style={{ flex: 1 }} />}
 
       {/* Input bar */}
       <div className="chat-input-row">
