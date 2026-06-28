@@ -12,6 +12,17 @@ function getCurrentPageText() {
   const overlay = document.querySelector('.feedback-overlay')
   const target  = overlay || document.querySelector('.screen')
   if (!target) return ''
+  // Screens can mark specific elements with data-tts to opt into reading
+  // only that content (e.g. the memory game reads only the question, not
+  // the surrounding buttons and labels). If nothing is marked, fall back
+  // to reading the whole screen.
+  const focused = target.querySelectorAll('[data-tts]')
+  if (focused.length > 0) {
+    return Array.from(focused)
+      .map(el => el.innerText.replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .join('. ')
+  }
   return target.innerText.replace(/\s+/g, ' ').trim()
 }
 

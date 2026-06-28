@@ -69,14 +69,14 @@ export default function QuestionScreen({ question, questionIndex, total, isRepea
       </div>
 
       <p className="question-intro-label">Great! Let's begin:</p>
-      <h2 className="question-number-label">Question {questionIndex + 1}</h2>
+      <h2 className="question-number-label" data-tts>Question {questionIndex + 1}</h2>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 0 }}>
         <span className="category-pill">{question.category}</span>
         {isRepeat && <span className="category-pill category-pill--repeat">↩ Revisit</span>}
       </div>
 
-      <p className="question-text">{question.question}</p>
+      <p className="question-text" data-tts>{question.question}</p>
 
       <div className="answer-area">
         <p className="answer-label">Your answer</p>

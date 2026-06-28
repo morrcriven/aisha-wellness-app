@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { analyseMealImage } from '../utils/openai'
 
 const COLORS = {
-  fruitsVeg:  '#6B7DB3',
-  protein:    '#5C8A80',
-  fibreCarbs: '#E8CEBA',
-  fats:       '#A8C4B8',
+  fruitsVeg:  '#FFC2D1', // pink
+  protein:    '#ADD4F0', // blue
+  fibreCarbs: '#FFE066', // yellow
+  fats:       '#D6CEF5', // lavender
 }
 
 const LABELS = {
