@@ -4,7 +4,51 @@ const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct
 const DAYS_SHORT   = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 const TABS         = ['Day', 'Week', 'Month', 'Year']
 
+/* ─── Sleep quality + colour matrix ──────────────────────────
+   Bars are coloured by combining hours-bucket (0=1-4h, 1=4.1-7h, 2=7.1+h)
+   with quality (0=bad, 1=okay, 2=good). The sum gives a rank 0-4:
+     0 red   (bad + 1-4h)
+     1 orange (bad + 4.1-7h | okay + 1-4h)
+     2 yellow (bad + 7.1+h | okay + 4.1-7h | good + 1-4h)
+     3 blue   (okay + 7.1+h | good + 4.1-7h)
+     4 green  (good + 7.1+h)
+*/
+const QUALITY_OPTIONS = [
+  { value: 'bad',  label: 'Bad'  },
+  { value: 'okay', label: 'Okay' },
+  { value: 'good', label: 'Good' },
+]
+const QUALITY_INDEX = { bad: 0, okay: 1, good: 2 }
+const QUALITY_NAMES = ['bad', 'okay', 'good']
+const COLOR_BY_SCORE = [
+  '#c0392b', // 0 — red
+  '#e67e22', // 1 — orange
+  '#f1c40f', // 2 — yellow
+  '#3498db', // 3 — blue
+  '#27ae60', // 4 — green
+]
+
+function hoursBucket(hours) {
+  if (hours <= 4) return 0
+  if (hours <= 7) return 1
+  return 2
+}
+
 /* ─── Chart data helpers ─────────────────────────────────── */
+// Aggregate a set of logs into a single { value, quality } pair.
+// `quality` is the rounded mean of recorded qualities, or undefined if none recorded.
+function aggregate(logs) {
+  if (logs.length === 0) return { value: null, quality: undefined }
+  const value = logs.reduce((s, l) => s + l.hours, 0) / logs.length
+  const rated = logs.filter(l => l.quality && l.quality in QUALITY_INDEX)
+  let quality
+  if (rated.length) {
+    const avgIdx = rated.reduce((s, l) => s + QUALITY_INDEX[l.quality], 0) / rated.length
+    quality = QUALITY_NAMES[Math.round(avgIdx)]
+  }
+  return { value, quality }
+}
+
 function getChartData(logs, tab) {
   const now   = new Date()
   const year  = now.getFullYear()
@@ -16,10 +60,7 @@ function getChartData(logs, tab) {
         const d = new Date(l.date + 'T12:00:00')
         return d.getFullYear() === year && d.getMonth() === i
       })
-      const avg = monthLogs.length
-        ? monthLogs.reduce((s, l) => s + l.hours, 0) / monthLogs.length
-        : null
-      return { label, value: avg }
+      return { label, ...aggregate(monthLogs) }
     })
   }
 
@@ -34,10 +75,7 @@ function getChartData(logs, tab) {
         return d.getFullYear() === year && d.getMonth() === month &&
                d.getDate() >= startDay && d.getDate() <= endDay
       })
-      const avg = weekLogs.length
-        ? weekLogs.reduce((s, l) => s + l.hours, 0) / weekLogs.length
-        : null
-      return { label: `Wk ${w + 1}`, value: avg }
+      return { label: `Wk ${w + 1}`, ...aggregate(weekLogs) }
     })
   }
 
@@ -51,7 +89,7 @@ function getChartData(logs, tab) {
       d.setDate(startOfWeek.getDate() + i)
       const dateStr = d.toISOString().slice(0, 10)
       const log     = logs.find(l => l.date === dateStr)
-      return { label, value: log ? log.hours : null }
+      return { label, value: log ? log.hours : null, quality: log?.quality }
     })
   }
 
@@ -59,7 +97,11 @@ function getChartData(logs, tab) {
   const todayStr = now.toISOString().slice(0, 10)
   const todayLog = logs.find(l => l.date === todayStr)
   const todayLabel = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
-  return [{ label: todayLabel, value: todayLog ? todayLog.hours : null }]
+  return [{
+    label:   todayLabel,
+    value:   todayLog ? todayLog.hours : null,
+    quality: todayLog?.quality,
+  }]
 }
 
 function getCaptionText(tab) {
@@ -93,6 +135,7 @@ export default function SleepScreen({ logs, onLogsChange, onHome }) {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [bedTime,      setBedTime]      = useState('')
   const [wakeTime,     setWakeTime]     = useState('')
+  const [quality,      setQuality]      = useState(null) // 'bad' | 'okay' | 'good'
 
   const calculatedHours = useMemo(() => {
     if (!bedTime || !wakeTime) return null
@@ -108,12 +151,14 @@ export default function SleepScreen({ logs, onLogsChange, onHome }) {
 
   function handleHoursSubmit() {
     if (calculatedHours == null || calculatedHours <= 0 || calculatedHours > 24) return
+    if (!quality) return
     const updated = logs.filter(l => l.date !== selectedDate)
-    updated.push({ date: selectedDate, hours: calculatedHours })
+    updated.push({ date: selectedDate, hours: calculatedHours, quality })
     updated.sort((a, b) => a.date.localeCompare(b.date))
     onLogsChange(updated)
     setBedTime('')
     setWakeTime('')
+    setQuality(null)
     setSubScreen('main')
   }
 
@@ -148,7 +193,8 @@ export default function SleepScreen({ logs, onLogsChange, onHome }) {
   /* ── Enter-hours sub-screen ── */
   if (subScreen === 'enter-hours') {
     const showResult = calculatedHours != null
-    const canSave    = showResult && calculatedHours > 0 && calculatedHours <= 24
+    const hoursOK    = showResult && calculatedHours > 0 && calculatedHours <= 24
+    const canSave    = hoursOK && !!quality
     return (
       <div className="screen sleep-screen">
         <button className="btn-back" onClick={() => setSubScreen('choose-date')} aria-label="Back">
@@ -184,6 +230,24 @@ export default function SleepScreen({ logs, onLogsChange, onHome }) {
             That's <strong>{calculatedHours.toFixed(1)} hours</strong> of sleep.
           </p>
         )}
+
+        <p className="sleep-time-label" style={{ marginTop: 20, marginBottom: 8, textAlign: 'center' }}>
+          How was the quality of your sleep?
+        </p>
+        <div className="quality-row" role="radiogroup" aria-label="Sleep quality">
+          {QUALITY_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={quality === opt.value}
+              className={`quality-btn${quality === opt.value ? ' quality-btn--selected' : ''}`}
+              onClick={() => setQuality(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
 
         <div style={{ flex: 1 }} />
 
@@ -274,7 +338,7 @@ function SleepList({ data }) {
     <>
       {data.map((d, i) => {
         const fillPct = d.value != null ? (d.value / maxVal) * 100 : 0
-        const color   = barColor(d.value)
+        const color   = barColor(d.value, d.quality)
         return (
           <div key={i} className="sleep-row">
             <span className={`sleep-row-label${wideLabel ? ' sleep-row-label--wide' : ''}`}>{d.label}</span>
@@ -296,12 +360,12 @@ function SleepList({ data }) {
   )
 }
 
-function barColor(hours) {
-  if (hours == null) return '#C5D5E8'
-  if (hours < 6)    return '#c0392b'   // too little — red
-  if (hours < 7)    return '#e67e22'   // below target — amber
-  if (hours <= 9)   return '#5C8A80'   // ideal — teal-sage
-  return '#6B7DB3'                     // too much — periwinkle
+function barColor(hours, quality) {
+  if (hours == null) return '#C5D5E8'             // no data → neutral grey-blue
+  // Legacy logs may have no quality recorded — assume "okay" so they still
+  // get a sensible colour rather than disappearing from the chart.
+  const qIdx = QUALITY_INDEX[quality] ?? 1
+  return COLOR_BY_SCORE[hoursBucket(hours) + qIdx]
 }
 
 /* ─── Icons ───────────────────────────────────────────────── */

@@ -469,19 +469,19 @@ body {
 .preset-btn {
   flex: 1;
   padding: 18px 8px;
-  border: 2px solid var(--navy);
-  background: transparent;
+  border: none;
+  background: var(--green-light);
   border-radius: var(--radius);
   font-size: 22px;
   font-weight: 800;
-  color: var(--navy);
+  color: white;
   cursor: pointer;
   font-family: inherit;
   transition: all var(--ease);
 }
 .preset-btn:hover,
 .preset-btn.selected {
-  background: var(--navy);
+  background: var(--green-dark);
   color: white;
 }
 
@@ -1205,6 +1205,31 @@ body {
 .sleep-time-result strong {
   color: var(--green);
   font-weight: 800;
+}
+
+/* Sleep quality picker (Bad / Okay / Good) */
+.quality-row {
+  display: flex;
+  gap: 10px;
+}
+.quality-btn {
+  flex: 1;
+  padding: 14px 4px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--green-light);
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity var(--ease), background var(--ease), transform var(--ease);
+}
+.quality-btn:hover:not(.quality-btn--selected) { opacity: 0.8; }
+.quality-btn--selected {
+  background: var(--green-dark);
+  opacity: 1;
 }
 
 /* Calendar icon area */
